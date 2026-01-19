@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(python3:*)",
+      "Bash(curl:*)",
+      "Bash(py:*)",
+      "Bash(start \"\" \"C:\\\\Users\\\\DELL\\\\Downloads\\\\Document Management System_1\\\\Document Management System\\\\add-member.html\")",
+      "Bash(git --version:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}
