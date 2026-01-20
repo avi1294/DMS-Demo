@@ -1,0 +1,38 @@
+// Login Page Styles
+
+.form-control-user {
+  font-size: 0.8rem;
+  border-radius: 10rem;
+  padding: 1.5rem 1rem;
+}
+
+.bg-login-image {
+  background: url($login-image);
+  background-position: center;
+  background-size: cover;
+}
+
+.bg-register-image {
+  background: url($register-image);
+  background-position: center;
+  background-size: cover;
+}
+
+.bg-password-image {
+  background: url($password-image);
+  background-position: center;
+  background-size: cover;
+}
+
+// Login image class
+.login-image {
+  background: url($login-image);
+  background-position: center;
+  background-size: cover;
+}
+
+.register-image {
+  background: url($register-image);
+  background-position: center;
+  background-size: cover;
+}

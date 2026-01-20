@@ -1,0 +1,68 @@
+// Custom Dropdown Styles
+
+.dropdown {
+  .dropdown-menu {
+    font-size: $dropdown-font-size;
+    .dropdown-header {
+      font-weight: 800;
+      font-size: 0.65rem;
+      color: $gray-500;
+    }
+  }
+}
+
+// Utility class for no dropdown arrow
+.no-arrow {
+  .dropdown-toggle::after {
+    display: none;
+  }
+}
+
+// Dropdown list
+.dropdown-list {
+  padding: 0;
+  border: none;
+  overflow: hidden;
+  .dropdown-header {
+    background-color: $blue;
+    border: 1px solid $blue;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+    color: $white;
+  }
+  .dropdown-item {
+    white-space: normal;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-left: 1px solid $border-color;
+    border-right: 1px solid $border-color;
+    border-bottom: 1px solid $border-color;
+    line-height: 1.3rem;
+    .dropdown-list-image {
+      position: relative;
+      height: 2.5rem;
+      width: 2.5rem;
+      img {
+        height: 2.5rem;
+        width: 2.5rem;
+      }
+      .status-indicator {
+        background-color: $gray-200;
+        height: 0.75rem;
+        width: 0.75rem;
+        border-radius: 100%;
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        border: 0.125rem solid $white;
+      }
+    }
+    .text-truncate {
+      max-width: 10rem;
+    }
+    &:active {
+      background-color: $gray-200;
+      color: $gray-900;
+    }
+  }
+}

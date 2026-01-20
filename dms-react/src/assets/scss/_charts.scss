@@ -1,0 +1,28 @@
+// Chart Styles
+
+.chart-area {
+  position: relative;
+  height: 10rem;
+  width: 100%;
+  @media (min-width: 768px) {
+    height: 20rem;
+  }
+}
+
+.chart-bar {
+  position: relative;
+  height: 10rem;
+  width: 100%;
+  @media (min-width: 768px) {
+    height: 20rem;
+  }
+}
+
+.chart-pie {
+  position: relative;
+  height: 15rem;
+  width: 100%;
+  @media (min-width: 768px) {
+    height: calc(20rem - 43px) !important;
+  }
+}

@@ -1,0 +1,10 @@
+// Background Gradient Mixin
+@mixin background-gradient {
+  background: linear-gradient(180deg, $blue 10%, darken($blue, 15%) 100%);
+}
+
+// Font Smoothing
+@mixin font-smoothing {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

@@ -1,0 +1,15 @@
+// Custom Card Styles
+
+.card {
+  .card-header {
+    background-color: $gray-100;
+    border-bottom: 1px solid $border-color;
+    [class^="fa-"],
+    [class*=" fa-"] {
+      margin-right: 0.25rem;
+    }
+  }
+  &.shadow {
+    box-shadow: $box-shadow !important;
+  }
+}
