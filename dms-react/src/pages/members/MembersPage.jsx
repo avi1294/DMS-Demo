@@ -1,115 +1,217 @@
-import { useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
-import DataTable from '../../components/tables/DataTable'
+import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import DataTable from '../../components/tables/DataTable';
+import ConfirmDialog from '../../components/common/ConfirmDialog';
+import EmptyState from '../../components/common/EmptyState';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
+import { useData } from '../../context/DataContext';
+import { useToast } from '../../context/ToastContext';
 
 function MembersPage() {
-  const [searchTerm, setSearchTerm] = useState('')
+  const { members, deleteMember, loading } = useData();
+  const toast = useToast();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [deleteModal, setDeleteModal] = useState({ open: false, member: null });
+  const [deleting, setDeleting] = useState(false);
 
-  // Sample data - in real app, fetch from API
-  const data = useMemo(() => [
-    { id: 1, name: 'John Doe', mobile: '1234567890', address: '123 Main St', status: 'active' },
-    { id: 2, name: 'Jane Smith', mobile: '0987654321', address: '456 Oak Ave', status: 'inactive' },
-    { id: 3, name: 'Bob Johnson', mobile: '5551234567', address: '789 Pine Rd', status: 'active' },
-    { id: 4, name: 'Alice Brown', mobile: '5559876543', address: '321 Elm St', status: 'active' },
-    { id: 5, name: 'Charlie Wilson', mobile: '5552468135', address: '654 Maple Dr', status: 'inactive' }
-  ], [])
+  const filteredData = useMemo(() => {
+    return members.filter((member) => {
+      const matchesSearch =
+        `${member.firstName} ${member.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        member.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        member.department?.toLowerCase().includes(searchTerm.toLowerCase());
 
-  const columns = useMemo(() => [
-    {
-      header: 'ID',
-      accessorKey: 'id',
-      cell: ({ getValue }) => <span className="text-center d-block">{getValue()}</span>
-    },
-    {
-      header: 'Name',
-      accessorKey: 'name',
-      cell: ({ getValue }) => <span className="text-center d-block">{getValue()}</span>
-    },
-    {
-      header: 'Mobile No.',
-      accessorKey: 'mobile',
-      cell: ({ getValue }) => <span className="text-center d-block">{getValue()}</span>
-    },
-    {
-      header: 'Address',
-      accessorKey: 'address',
-      cell: ({ getValue }) => <span className="text-center d-block">{getValue()}</span>
-    },
-    {
-      header: 'Status',
-      accessorKey: 'status',
-      cell: ({ getValue }) => {
-        const status = getValue()
-        return (
-          <span className="text-center d-block">
-            {status === 'inactive' && (
-              <span className="badge bg-danger text-white">Inactive</span>
-            )}
-            {status === 'active' && (
-              <span className="badge bg-success text-white">Active</span>
-            )}
-          </span>
-        )
+      const matchesStatus = statusFilter === 'all' || member.status === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [members, searchTerm, statusFilter]);
+
+  const handleDeleteClick = (member) => {
+    setDeleteModal({ open: true, member });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteModal.member) return;
+
+    setDeleting(true);
+    try {
+      const success = deleteMember(deleteModal.member.id);
+      if (success) {
+        toast.success(`Member "${deleteModal.member.firstName} ${deleteModal.member.lastName}" deleted successfully`);
+      } else {
+        toast.error('Failed to delete member');
       }
-    },
-    {
-      header: 'Action',
-      cell: () => (
-        <span className="text-center d-block">
-          <button
-            className="btn btn-success btn-sm"
-            onClick={() => alert('Module to edit user, same as add member')}
-          >
-            Edit
-          </button>
-        </span>
-      )
+    } catch (error) {
+      toast.error('An error occurred while deleting');
+    } finally {
+      setDeleting(false);
+      setDeleteModal({ open: false, member: null });
     }
-  ], [])
+  };
+
+  const columns = useMemo(
+    () => [
+      {
+        header: 'Member',
+        accessorFn: (row) => `${row.firstName} ${row.lastName}`,
+        cell: ({ row }) => (
+          <div className="d-flex align-items-center">
+            <div
+              className="avatar bg-primary text-white mr-3"
+              title={`${row.original.firstName} ${row.original.lastName}`}
+            >
+              {row.original.firstName?.[0]}
+              {row.original.lastName?.[0]}
+            </div>
+            <div>
+              <div className="font-weight-bold">
+                {row.original.firstName} {row.original.lastName}
+              </div>
+              <small className="text-muted">{row.original.email}</small>
+            </div>
+          </div>
+        ),
+      },
+      {
+        header: 'Phone',
+        accessorKey: 'phone',
+        cell: ({ getValue }) => getValue() || '-',
+      },
+      {
+        header: 'Department',
+        accessorKey: 'department',
+        cell: ({ getValue }) => getValue() || '-',
+      },
+      {
+        header: 'Role',
+        accessorKey: 'role',
+        cell: ({ getValue }) => getValue() || '-',
+      },
+      {
+        header: 'Status',
+        accessorKey: 'status',
+        cell: ({ getValue }) => {
+          const status = getValue();
+          return (
+            <span className={`badge badge-status status-${status}`}>
+              {status === 'active' ? 'Active' : 'Inactive'}
+            </span>
+          );
+        },
+      },
+      {
+        header: 'Actions',
+        cell: ({ row }) => (
+          <div className="action-buttons">
+            <Link
+              to={`/members/edit/${row.original.id}`}
+              className="btn btn-sm btn-success btn-icon-sm"
+              title="Edit Member"
+            >
+              <i className="fas fa-edit"></i>
+            </Link>
+            <button
+              className="btn btn-sm btn-danger btn-icon-sm"
+              onClick={() => handleDeleteClick(row.original)}
+              title="Delete Member"
+            >
+              <i className="fas fa-trash"></i>
+            </button>
+          </div>
+        ),
+      },
+    ],
+    []
+  );
+
+  if (loading) {
+    return <LoadingSpinner fullScreen text="Loading members..." />;
+  }
 
   return (
-    <div className="container-fluid">
-      {/* Page Heading */}
-      <div className="d-sm-flex align-items-center justify-content-start mb-4">
+    <div className="container-fluid fade-in">
+      {/* Page Header */}
+      <div className="page-header">
         <h1 className="h3 mb-0 text-gray-800">Manage Members</h1>
+        <Link to="/members/add" className="btn btn-primary">
+          <i className="fas fa-plus mr-2"></i>
+          Add Member
+        </Link>
       </div>
 
-      <div className="container-fluid px-4">
-        <div className="card mt-4 shadow">
-          <div className="card-header">
-            <div className="row align-items-center">
-              <div className="col">
-                <h4 className="mb-0">Members</h4>
-              </div>
-              <div className="col-auto">
-                <Link to="/members/add" className="btn btn-primary">
-                  Add Member
-                </Link>
-              </div>
-              <div className="col-md-3">
-                <input
-                  className="form-control"
-                  type="search"
-                  placeholder="Search Name"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+      {/* Main Card */}
+      <div className="card shadow mb-4">
+        <div className="card-header py-3">
+          <div className="row align-items-center">
+            <div className="col-md-6">
+              <h6 className="m-0 font-weight-bold text-primary">
+                Members ({filteredData.length})
+              </h6>
+            </div>
+            <div className="col-md-6">
+              <div className="d-flex gap-2 justify-content-end">
+                <div className="search-box" style={{ maxWidth: '250px' }}>
+                  <i className="fas fa-search search-icon"></i>
+                  <input
+                    type="search"
+                    className="form-control form-control-sm"
+                    placeholder="Search members..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <select
+                  className="form-control form-control-sm"
+                  style={{ width: '130px' }}
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <option value="all">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
               </div>
             </div>
           </div>
-          <div className="card-body">
-            <DataTable
-              data={data.filter(item =>
-                item.name.toLowerCase().includes(searchTerm.toLowerCase())
-              )}
-              columns={columns}
-              searchable={false}
+        </div>
+        <div className="card-body">
+          {filteredData.length === 0 ? (
+            <EmptyState
+              icon="fa-users"
+              title="No Members Found"
+              description={
+                searchTerm || statusFilter !== 'all'
+                  ? 'No members match your search criteria.'
+                  : 'Get started by adding your first team member.'
+              }
+              actionText={!searchTerm && statusFilter === 'all' ? 'Add Member' : ''}
+              onAction={() => (window.location.href = '/members/add')}
             />
-          </div>
+          ) : (
+            <DataTable data={filteredData} columns={columns} searchable={false} />
+          )}
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={deleteModal.open}
+        onClose={() => setDeleteModal({ open: false, member: null })}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Member"
+        message={
+          deleteModal.member
+            ? `Are you sure you want to delete "${deleteModal.member.firstName} ${deleteModal.member.lastName}"? This action cannot be undone.`
+            : ''
+        }
+        confirmText="Delete"
+        variant="danger"
+        loading={deleting}
+      />
     </div>
-  )
+  );
 }
 
-export default MembersPage
+export default MembersPage;
