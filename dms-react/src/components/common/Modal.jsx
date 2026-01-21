@@ -49,7 +49,7 @@ function Modal({ show, title, children, footer, onClose, size = '' }) {
           </div>
         </div>
       </div>
-      {show && <div className="modal-backdrop fade show"></div>}
+      {show && <div className="modal-backdrop fade show" onClick={onClose}></div>}
     </>
   )
 }
