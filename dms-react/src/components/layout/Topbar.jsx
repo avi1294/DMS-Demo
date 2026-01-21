@@ -1,82 +1,77 @@
-import { useState } from 'react'
-import { useSidebar } from '../../context/SidebarContext'
-import profileImg from '../../assets/img/undraw_profile.svg'
-import profile1Img from '../../assets/img/undraw_profile_1.svg'
-import profile2Img from '../../assets/img/undraw_profile_2.svg'
-import profile3Img from '../../assets/img/undraw_profile_3.svg'
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useSidebar } from '../../context/SidebarContext';
+import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
+import { useData } from '../../context/DataContext';
+import profileImg from '../../assets/img/undraw_profile.svg';
 
-function Topbar({ onLogoutClick }) {
-  const { toggleSidebar } = useSidebar()
-  const [searchQuery, setSearchQuery] = useState('')
-  const [showAlerts, setShowAlerts] = useState(false)
-  const [showMessages, setShowMessages] = useState(false)
-  const [showUserMenu, setShowUserMenu] = useState(false)
-  const [showSearchMobile, setShowSearchMobile] = useState(false)
+function Topbar() {
+  const navigate = useNavigate();
+  const { toggleSidebar } = useSidebar();
+  const { user, logout, isAuthenticated } = useAuth();
+  const toast = useToast();
+  const { getStats } = useData();
 
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showAlerts, setShowAlerts] = useState(false);
+  const [showMessages, setShowMessages] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showSearchMobile, setShowSearchMobile] = useState(false);
+
+  const stats = getStats();
+
+  // Dynamic alerts based on real data
   const alerts = [
     {
       id: 1,
+      icon: 'fa-clock',
+      bgColor: 'bg-warning',
+      date: 'Just now',
+      message: `${stats.pendingDocuments} documents pending verification`,
+      bold: true,
+    },
+    {
+      id: 2,
       icon: 'fa-file-alt',
       bgColor: 'bg-primary',
-      date: 'December 12, 2019',
-      message: 'A new monthly report is ready to download!',
-      bold: true
+      date: 'Today',
+      message: `${stats.totalDocuments} total documents in the system`,
     },
     {
-      id: 2,
-      icon: 'fa-donate',
+      id: 3,
+      icon: 'fa-users',
       bgColor: 'bg-success',
-      date: 'December 7, 2019',
-      message: '$290.29 has been deposited into your account!'
+      date: 'Today',
+      message: `${stats.activeMembers} active team members`,
     },
-    {
-      id: 3,
-      icon: 'fa-exclamation-triangle',
-      bgColor: 'bg-warning',
-      date: 'December 2, 2019',
-      message: 'Spending Alert: We\'ve noticed unusually high spending for your account.'
-    }
-  ]
-
-  const messages = [
-    {
-      id: 1,
-      image: profile1Img,
-      name: 'Emily Fowler',
-      time: '58m',
-      message: 'Hi there! I am wondering if you can help me with a problem I\'ve been having.',
-      status: 'bg-success'
-    },
-    {
-      id: 2,
-      image: profile2Img,
-      name: 'Jae Chun',
-      time: '1d',
-      message: 'I have the photos that you ordered last month, how would you like them sent to you?',
-      status: ''
-    },
-    {
-      id: 3,
-      image: profile3Img,
-      name: 'Morgan Alvarez',
-      time: '2d',
-      message: 'Last month\'s report looks great, I am very happy with the progress so far, keep up the good work!',
-      status: 'bg-warning'
-    }
-  ]
+  ];
 
   const closeAllDropdowns = () => {
-    setShowAlerts(false)
-    setShowMessages(false)
-    setShowUserMenu(false)
-    setShowSearchMobile(false)
-  }
+    setShowAlerts(false);
+    setShowMessages(false);
+    setShowUserMenu(false);
+    setShowSearchMobile(false);
+  };
 
   const handleSearch = (e) => {
-    e.preventDefault()
-    // Implement search functionality here
-    console.log('Searching for:', searchQuery)
-  }
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      toast.info(`Search feature coming soon! Query: "${searchQuery}"`);
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
+    toast.success('You have been logged out');
+    navigate('/login');
+  };
+
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    if (!user) return 'U';
+    return `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase();
+  };
 
   return (
     <nav className="navbar navbar-expand navbar-light bg-white topbar mb-4 static-top shadow">
@@ -119,14 +114,18 @@ function Topbar({ onLogoutClick }) {
             className="nav-link dropdown-toggle"
             href="#"
             onClick={(e) => {
-              e.preventDefault()
-              closeAllDropdowns()
-              setShowSearchMobile(!showSearchMobile)
+              e.preventDefault();
+              closeAllDropdowns();
+              setShowSearchMobile(!showSearchMobile);
             }}
           >
             <i className="fas fa-search fa-fw"></i>
           </a>
-          <div className={`dropdown-menu dropdown-menu-right p-3 shadow animated--grow-in ${showSearchMobile ? 'show' : ''}`}>
+          <div
+            className={`dropdown-menu dropdown-menu-right p-3 shadow animated--grow-in ${
+              showSearchMobile ? 'show' : ''
+            }`}
+          >
             <form className="form-inline mr-auto w-100 navbar-search" onSubmit={handleSearch}>
               <div className="input-group">
                 <input
@@ -153,15 +152,23 @@ function Topbar({ onLogoutClick }) {
             className="nav-link dropdown-toggle"
             href="#"
             onClick={(e) => {
-              e.preventDefault()
-              closeAllDropdowns()
-              setShowAlerts(!showAlerts)
+              e.preventDefault();
+              closeAllDropdowns();
+              setShowAlerts(!showAlerts);
             }}
           >
             <i className="fas fa-bell fa-fw"></i>
-            <span className="badge badge-danger badge-counter">3+</span>
+            {stats.pendingDocuments > 0 && (
+              <span className="badge badge-danger badge-counter">
+                {stats.pendingDocuments > 9 ? '9+' : stats.pendingDocuments}
+              </span>
+            )}
           </a>
-          <div className={`dropdown-list dropdown-menu dropdown-menu-right shadow animated--grow-in ${showAlerts ? 'show' : ''}`}>
+          <div
+            className={`dropdown-list dropdown-menu dropdown-menu-right shadow animated--grow-in ${
+              showAlerts ? 'show' : ''
+            }`}
+          >
             <h6 className="dropdown-header">Alerts Center</h6>
             {alerts.map((alert) => (
               <a key={alert.id} className="dropdown-item d-flex align-items-center" href="#">
@@ -180,42 +187,16 @@ function Topbar({ onLogoutClick }) {
                 </div>
               </a>
             ))}
-            <a className="dropdown-item text-center small text-gray-500" href="#">
-              Show All Alerts
-            </a>
-          </div>
-        </li>
-
-        {/* Nav Item - Messages */}
-        <li className={`nav-item dropdown no-arrow mx-1 ${showMessages ? 'show' : ''}`}>
-          <a
-            className="nav-link dropdown-toggle"
-            href="#"
-            onClick={(e) => {
-              e.preventDefault()
-              closeAllDropdowns()
-              setShowMessages(!showMessages)
-            }}
-          >
-            <i className="fas fa-envelope fa-fw"></i>
-            <span className="badge badge-danger badge-counter">7</span>
-          </a>
-          <div className={`dropdown-list dropdown-menu dropdown-menu-right shadow animated--grow-in ${showMessages ? 'show' : ''}`}>
-            <h6 className="dropdown-header">Message Center</h6>
-            {messages.map((msg) => (
-              <a key={msg.id} className="dropdown-item d-flex align-items-center" href="#">
-                <div className="dropdown-list-image mr-3">
-                  <img className="rounded-circle" src={msg.image} alt={msg.name} />
-                  {msg.status && <div className={`status-indicator ${msg.status}`}></div>}
-                </div>
-                <div className={msg.id === 1 ? 'font-weight-bold' : ''}>
-                  <div className="text-truncate">{msg.message}</div>
-                  <div className="small text-gray-500">{msg.name} · {msg.time}</div>
-                </div>
-              </a>
-            ))}
-            <a className="dropdown-item text-center small text-gray-500" href="#">
-              Read More Messages
+            <a
+              className="dropdown-item text-center small text-gray-500"
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate('/quality-check/verify');
+                closeAllDropdowns();
+              }}
+            >
+              View All Pending Documents
             </a>
           </div>
         </li>
@@ -228,44 +209,94 @@ function Topbar({ onLogoutClick }) {
             className="nav-link dropdown-toggle"
             href="#"
             onClick={(e) => {
-              e.preventDefault()
-              closeAllDropdowns()
-              setShowUserMenu(!showUserMenu)
+              e.preventDefault();
+              closeAllDropdowns();
+              setShowUserMenu(!showUserMenu);
             }}
           >
-            <span className="mr-2 d-none d-lg-inline text-gray-600 small">Douglas McGee</span>
-            <img className="img-profile rounded-circle" src={profileImg} alt="Profile" />
+            <span className="mr-2 d-none d-lg-inline text-gray-600 small">
+              {isAuthenticated && user
+                ? `${user.firstName} ${user.lastName}`
+                : 'Guest User'}
+            </span>
+            {isAuthenticated && user ? (
+              <div
+                className="img-profile rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
+                style={{ width: '32px', height: '32px', fontSize: '0.8rem' }}
+              >
+                {getUserInitials()}
+              </div>
+            ) : (
+              <img className="img-profile rounded-circle" src={profileImg} alt="Profile" />
+            )}
           </a>
-          <div className={`dropdown-menu dropdown-menu-right shadow animated--grow-in ${showUserMenu ? 'show' : ''}`}>
-            <a className="dropdown-item" href="#">
-              <i className="fas fa-user fa-sm fa-fw mr-2 text-gray-400"></i>
-              Profile
-            </a>
-            <a className="dropdown-item" href="#">
-              <i className="fas fa-cogs fa-sm fa-fw mr-2 text-gray-400"></i>
-              Settings
-            </a>
-            <a className="dropdown-item" href="#">
-              <i className="fas fa-list fa-sm fa-fw mr-2 text-gray-400"></i>
-              Activity Log
-            </a>
-            <div className="dropdown-divider"></div>
-            <a
-              className="dropdown-item"
-              href="#"
-              onClick={(e) => {
-                e.preventDefault()
-                onLogoutClick()
-              }}
-            >
-              <i className="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-gray-400"></i>
-              Logout
-            </a>
+          <div
+            className={`dropdown-menu dropdown-menu-right shadow animated--grow-in ${
+              showUserMenu ? 'show' : ''
+            }`}
+          >
+            {isAuthenticated && user ? (
+              <>
+                <div className="dropdown-item-text">
+                  <div className="font-weight-bold">{user.firstName} {user.lastName}</div>
+                  <small className="text-muted">{user.email}</small>
+                  <div>
+                    <span className="badge badge-primary">{user.role}</span>
+                  </div>
+                </div>
+                <div className="dropdown-divider"></div>
+                <a className="dropdown-item" href="#" onClick={(e) => e.preventDefault()}>
+                  <i className="fas fa-user fa-sm fa-fw mr-2 text-gray-400"></i>
+                  Profile
+                </a>
+                <a className="dropdown-item" href="#" onClick={(e) => e.preventDefault()}>
+                  <i className="fas fa-cogs fa-sm fa-fw mr-2 text-gray-400"></i>
+                  Settings
+                </a>
+                <div className="dropdown-divider"></div>
+                <a
+                  className="dropdown-item"
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleLogout();
+                  }}
+                >
+                  <i className="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-gray-400"></i>
+                  Logout
+                </a>
+              </>
+            ) : (
+              <>
+                <a
+                  className="dropdown-item"
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate('/login');
+                  }}
+                >
+                  <i className="fas fa-sign-in-alt fa-sm fa-fw mr-2 text-gray-400"></i>
+                  Login
+                </a>
+                <a
+                  className="dropdown-item"
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate('/register');
+                  }}
+                >
+                  <i className="fas fa-user-plus fa-sm fa-fw mr-2 text-gray-400"></i>
+                  Register
+                </a>
+              </>
+            )}
           </div>
         </li>
       </ul>
     </nav>
-  )
+  );
 }
 
-export default Topbar
+export default Topbar;

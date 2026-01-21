@@ -1,108 +1,445 @@
-import { useState, useMemo } from 'react'
-import DataTable from '../../components/tables/DataTable'
-import Modal from '../../components/common/Modal'
+import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import DataTable from '../../components/tables/DataTable';
+import Modal from '../../components/common/Modal';
+import ConfirmDialog from '../../components/common/ConfirmDialog';
+import EmptyState from '../../components/common/EmptyState';
+import { useData } from '../../context/DataContext';
+import { useToast } from '../../context/ToastContext';
+import { scanStatuses } from '../../data/seedData';
 
 function ScanDocsPage() {
-  const [showUploadModal, setShowUploadModal] = useState(false)
-  const [selectedFile, setSelectedFile] = useState(null)
-  const [filters, setFilters] = useState({ dept: '', area: '', year: '' })
+  const { scanQueue, addToScanQueue, updateScanStatus, deleteScanItem } = useData();
+  const toast = useToast();
 
-  const data = useMemo(() => [
-    { dept: 'HR', area: 'Edinburgh', year: '2011/04/25', fileNo: '320,800' },
-    { dept: 'IT', area: 'Tokyo', year: '2011/07/25', fileNo: '170,750' },
-    { dept: 'Finance', area: 'San Francisco', year: '2009/01/12', fileNo: '86,000' },
-    { dept: 'HR', area: 'Edinburgh', year: '2012/03/29', fileNo: '433,060' },
-    { dept: 'IT', area: 'Tokyo', year: '2008/11/28', fileNo: '162,700' },
-  ], [])
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showNewBatchModal, setShowNewBatchModal] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedBatch, setSelectedBatch] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [deleteModal, setDeleteModal] = useState({ open: false, item: null });
+  const [deleting, setDeleting] = useState(false);
+
+  const [newBatch, setNewBatch] = useState({
+    batchName: '',
+    documentCount: '',
+    priority: 'medium',
+    notes: '',
+  });
 
   const filteredData = useMemo(() => {
-    return data.filter(row => {
-      if (filters.dept && !row.dept.toLowerCase().includes(filters.dept.toLowerCase())) return false
-      if (filters.area && !row.area.toLowerCase().includes(filters.area.toLowerCase())) return false
-      if (filters.year && !row.year.includes(filters.year)) return false
-      return true
-    })
-  }, [data, filters])
+    return scanQueue.filter((item) => {
+      return statusFilter === 'all' || item.status === statusFilter;
+    });
+  }, [scanQueue, statusFilter]);
 
-  const columns = useMemo(() => [
-    { header: 'Dept Name', accessorKey: 'dept' },
-    { header: 'Area', accessorKey: 'area' },
-    { header: 'Year', accessorKey: 'year' },
-    { header: 'File No', accessorKey: 'fileNo' },
-    {
-      header: 'Actions',
-      cell: () => (
-        <>
-          <button className="btn btn-sm btn-outline-success mr-1" onClick={() => setShowUploadModal(true)} title="Upload Files">
-            <i className="fas fa-upload"></i>
-          </button>
-          <button className="btn btn-sm btn-outline-danger" title="Reject or hold">
-            <i className="fas fa-trash"></i>
-          </button>
-        </>
-      )
+  const getStatusBadge = (status) => {
+    const statusConfig = scanStatuses.find((s) => s.value === status);
+    return (
+      <span className={`badge badge-${statusConfig?.color || 'secondary'} badge-status`}>
+        {statusConfig?.label || status}
+      </span>
+    );
+  };
+
+  const handleCreateBatch = () => {
+    if (!newBatch.batchName.trim()) {
+      toast.warning('Please enter a batch name');
+      return;
     }
-  ], [])
+
+    addToScanQueue({
+      batchName: newBatch.batchName,
+      documentCount: parseInt(newBatch.documentCount) || 0,
+      priority: newBatch.priority,
+      notes: newBatch.notes,
+      status: 'pending',
+    });
+
+    toast.success(`Batch "${newBatch.batchName}" created successfully`);
+    setShowNewBatchModal(false);
+    setNewBatch({ batchName: '', documentCount: '', priority: 'medium', notes: '' });
+  };
 
   const handleUpload = () => {
-    alert('Documents Uploaded Successfully')
-    setShowUploadModal(false)
-    setSelectedFile(null)
-  }
+    if (!selectedFile) {
+      toast.warning('Please select a file to upload');
+      return;
+    }
+
+    if (selectedBatch) {
+      updateScanStatus(selectedBatch.id, 'in_progress', `Uploading ${selectedFile.name}`);
+      toast.success(`Documents uploaded to batch "${selectedBatch.batchName}"`);
+    } else {
+      toast.success('Documents uploaded successfully');
+    }
+
+    setShowUploadModal(false);
+    setSelectedFile(null);
+    setSelectedBatch(null);
+  };
+
+  const handleStartScan = (item) => {
+    updateScanStatus(item.id, 'in_progress');
+    toast.info(`Started scanning batch "${item.batchName}"`);
+  };
+
+  const handleCompleteScan = (item) => {
+    updateScanStatus(item.id, 'completed');
+    toast.success(`Batch "${item.batchName}" completed successfully`);
+  };
+
+  const handleHoldScan = (item) => {
+    updateScanStatus(item.id, 'hold', 'Placed on hold for review');
+    toast.warning(`Batch "${item.batchName}" placed on hold`);
+  };
+
+  const handleDeleteClick = (item) => {
+    setDeleteModal({ open: true, item });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteModal.item) return;
+
+    setDeleting(true);
+    try {
+      deleteScanItem(deleteModal.item.id);
+      toast.success(`Batch "${deleteModal.item.batchName}" deleted`);
+    } catch (error) {
+      toast.error('Failed to delete batch');
+    } finally {
+      setDeleting(false);
+      setDeleteModal({ open: false, item: null });
+    }
+  };
+
+  const columns = useMemo(
+    () => [
+      {
+        header: 'Batch Name',
+        accessorKey: 'batchName',
+        cell: ({ row }) => (
+          <div>
+            <div className="font-weight-bold">{row.original.batchName}</div>
+            <small className="text-muted">
+              {row.original.documentCount} documents
+            </small>
+          </div>
+        ),
+      },
+      {
+        header: 'Priority',
+        accessorKey: 'priority',
+        cell: ({ getValue }) => {
+          const priority = getValue();
+          const colors = {
+            low: 'secondary',
+            medium: 'info',
+            high: 'warning',
+            urgent: 'danger',
+          };
+          return (
+            <span className={`badge badge-${colors[priority] || 'secondary'}`}>
+              {priority?.charAt(0).toUpperCase() + priority?.slice(1)}
+            </span>
+          );
+        },
+      },
+      {
+        header: 'Status',
+        accessorKey: 'status',
+        cell: ({ getValue }) => getStatusBadge(getValue()),
+      },
+      {
+        header: 'Scanned By',
+        accessorKey: 'scannedBy',
+        cell: ({ getValue }) => getValue() || <span className="text-muted">Unassigned</span>,
+      },
+      {
+        header: 'Created',
+        accessorKey: 'createdAt',
+        cell: ({ getValue }) => {
+          const date = getValue();
+          return date ? new Date(date).toLocaleDateString() : '-';
+        },
+      },
+      {
+        header: 'Actions',
+        cell: ({ row }) => {
+          const item = row.original;
+          return (
+            <div className="action-buttons">
+              {item.status === 'pending' && (
+                <button
+                  className="btn btn-sm btn-primary btn-icon-sm"
+                  onClick={() => handleStartScan(item)}
+                  title="Start Scanning"
+                >
+                  <i className="fas fa-play"></i>
+                </button>
+              )}
+              {item.status === 'in_progress' && (
+                <>
+                  <button
+                    className="btn btn-sm btn-success btn-icon-sm"
+                    onClick={() => handleCompleteScan(item)}
+                    title="Mark Complete"
+                  >
+                    <i className="fas fa-check"></i>
+                  </button>
+                  <button
+                    className="btn btn-sm btn-warning btn-icon-sm"
+                    onClick={() => handleHoldScan(item)}
+                    title="Put on Hold"
+                  >
+                    <i className="fas fa-pause"></i>
+                  </button>
+                </>
+              )}
+              <button
+                className="btn btn-sm btn-info btn-icon-sm"
+                onClick={() => {
+                  setSelectedBatch(item);
+                  setShowUploadModal(true);
+                }}
+                title="Upload Documents"
+              >
+                <i className="fas fa-upload"></i>
+              </button>
+              <button
+                className="btn btn-sm btn-danger btn-icon-sm"
+                onClick={() => handleDeleteClick(item)}
+                title="Delete Batch"
+              >
+                <i className="fas fa-trash"></i>
+              </button>
+            </div>
+          );
+        },
+      },
+    ],
+    []
+  );
 
   return (
-    <div className="container-fluid">
+    <div className="container-fluid fade-in">
+      {/* Page Header */}
+      <div className="page-header">
+        <h1 className="h3 mb-0 text-gray-800">Scan Documents</h1>
+        <button className="btn btn-primary" onClick={() => setShowNewBatchModal(true)}>
+          <i className="fas fa-plus mr-2"></i>
+          New Batch
+        </button>
+      </div>
+
+      {/* Stats Row */}
+      <div className="row mb-4">
+        {scanStatuses.slice(0, 4).map((status) => {
+          const count = scanQueue.filter((s) => s.status === status.value).length;
+          return (
+            <div key={status.value} className="col-xl-3 col-md-6 mb-4">
+              <div className={`card border-left-${status.color} shadow h-100 py-2`}>
+                <div className="card-body">
+                  <div className="row no-gutters align-items-center">
+                    <div className="col mr-2">
+                      <div className={`text-xs font-weight-bold text-${status.color} text-uppercase mb-1`}>
+                        {status.label}
+                      </div>
+                      <div className="h5 mb-0 font-weight-bold text-gray-800">{count}</div>
+                    </div>
+                    <div className="col-auto">
+                      <i className="fas fa-scanner fa-2x text-gray-300"></i>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Main Card */}
       <div className="card shadow mb-4">
         <div className="card-header py-3">
-          <h6 className="m-0 font-weight-bold text-primary">Upload Scan Documents</h6>
-        </div>
-        <div className="card-body">
-          <div className="row mb-3">
-            <div className="col-md-3">
-              <label>Filter by Dept:</label>
-              <select className="form-control" value={filters.dept} onChange={(e) => setFilters({...filters, dept: e.target.value})}>
-                <option value="">All</option>
-                <option value="HR">HR</option>
-                <option value="IT">IT</option>
-                <option value="Finance">Finance</option>
-              </select>
+          <div className="row align-items-center">
+            <div className="col-md-6">
+              <h6 className="m-0 font-weight-bold text-primary">
+                Scan Queue ({filteredData.length})
+              </h6>
             </div>
-            <div className="col-md-3">
-              <label>Filter by Area:</label>
-              <select className="form-control" value={filters.area} onChange={(e) => setFilters({...filters, area: e.target.value})}>
-                <option value="">All</option>
-                <option value="Edinburgh">Edinburgh</option>
-                <option value="Tokyo">Tokyo</option>
-                <option value="San Francisco">San Francisco</option>
-              </select>
-            </div>
-            <div className="col-md-3">
-              <label>Filter by Year:</label>
-              <select className="form-control" value={filters.year} onChange={(e) => setFilters({...filters, year: e.target.value})}>
-                <option value="">All</option>
-                <option value="2009">2009</option>
-                <option value="2010">2010</option>
-                <option value="2011">2011</option>
-                <option value="2012">2012</option>
+            <div className="col-md-6 text-right">
+              <select
+                className="form-control form-control-sm d-inline-block"
+                style={{ width: '150px' }}
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="all">All Status</option>
+                {scanStatuses.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
-          <DataTable data={filteredData} columns={columns} searchable={false} />
+        </div>
+        <div className="card-body">
+          {filteredData.length === 0 ? (
+            <EmptyState
+              icon="fa-file-upload"
+              title="No Scan Batches"
+              description="Create a new batch to start scanning documents."
+              actionText="Create Batch"
+              onAction={() => setShowNewBatchModal(true)}
+            />
+          ) : (
+            <DataTable data={filteredData} columns={columns} searchable={false} />
+          )}
         </div>
       </div>
 
-      <Modal show={showUploadModal} title="Upload Documents" onClose={() => setShowUploadModal(false)}
-        footer={<><button className="btn btn-secondary" onClick={() => setShowUploadModal(false)}>Cancel</button><button className="btn btn-primary" onClick={handleUpload}>Upload</button></>}>
-        <div className="text-center">
-          <label htmlFor="uploadDocs" className="btn btn-outline-success" style={{ cursor: 'pointer', padding: '20px', border: '2px dashed #4CAF50', width: '80%' }}>
-            <i className="fas fa-cloud-upload-alt"></i> Click to select file
-          </label>
-          <input type="file" id="uploadDocs" style={{ display: 'none' }} onChange={(e) => setSelectedFile(e.target.files[0])} />
-          <div className="mt-2 text-muted">{selectedFile ? selectedFile.name : 'No file chosen'}</div>
+      {/* New Batch Modal */}
+      <Modal
+        show={showNewBatchModal}
+        title="Create New Scan Batch"
+        onClose={() => setShowNewBatchModal(false)}
+        footer={
+          <>
+            <button className="btn btn-secondary" onClick={() => setShowNewBatchModal(false)}>
+              Cancel
+            </button>
+            <button className="btn btn-primary" onClick={handleCreateBatch}>
+              Create Batch
+            </button>
+          </>
+        }
+      >
+        <div className="form-group">
+          <label className="required-field">Batch Name</label>
+          <input
+            type="text"
+            className="form-control"
+            value={newBatch.batchName}
+            onChange={(e) => setNewBatch({ ...newBatch, batchName: e.target.value })}
+            placeholder="e.g., Batch-2024-001"
+          />
+        </div>
+        <div className="form-group">
+          <label>Expected Document Count</label>
+          <input
+            type="number"
+            className="form-control"
+            value={newBatch.documentCount}
+            onChange={(e) => setNewBatch({ ...newBatch, documentCount: e.target.value })}
+            placeholder="0"
+            min="0"
+          />
+        </div>
+        <div className="form-group">
+          <label>Priority</label>
+          <select
+            className="form-control"
+            value={newBatch.priority}
+            onChange={(e) => setNewBatch({ ...newBatch, priority: e.target.value })}
+          >
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+          </select>
+        </div>
+        <div className="form-group">
+          <label>Notes</label>
+          <textarea
+            className="form-control"
+            value={newBatch.notes}
+            onChange={(e) => setNewBatch({ ...newBatch, notes: e.target.value })}
+            placeholder="Add notes about this batch..."
+            rows="2"
+          />
         </div>
       </Modal>
+
+      {/* Upload Modal */}
+      <Modal
+        show={showUploadModal}
+        title={selectedBatch ? `Upload to ${selectedBatch.batchName}` : 'Upload Documents'}
+        onClose={() => {
+          setShowUploadModal(false);
+          setSelectedFile(null);
+          setSelectedBatch(null);
+        }}
+        footer={
+          <>
+            <button
+              className="btn btn-secondary"
+              onClick={() => {
+                setShowUploadModal(false);
+                setSelectedFile(null);
+                setSelectedBatch(null);
+              }}
+            >
+              Cancel
+            </button>
+            <button className="btn btn-primary" onClick={handleUpload}>
+              Upload
+            </button>
+          </>
+        }
+      >
+        <div className="text-center py-4">
+          <label
+            htmlFor="uploadDocs"
+            className="btn btn-outline-primary"
+            style={{
+              cursor: 'pointer',
+              padding: '40px',
+              border: '2px dashed #4e73df',
+              width: '100%',
+              borderRadius: '8px',
+            }}
+          >
+            <i className="fas fa-cloud-upload-alt fa-3x mb-3 d-block"></i>
+            <span>Click to select files or drag and drop</span>
+          </label>
+          <input
+            type="file"
+            id="uploadDocs"
+            style={{ display: 'none' }}
+            onChange={(e) => setSelectedFile(e.target.files[0])}
+            multiple
+          />
+          <div className="mt-3">
+            {selectedFile ? (
+              <div className="alert alert-success mb-0">
+                <i className="fas fa-file mr-2"></i>
+                {selectedFile.name}
+              </div>
+            ) : (
+              <span className="text-muted">No file selected</span>
+            )}
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation */}
+      <ConfirmDialog
+        isOpen={deleteModal.open}
+        onClose={() => setDeleteModal({ open: false, item: null })}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Batch"
+        message={
+          deleteModal.item
+            ? `Are you sure you want to delete batch "${deleteModal.item.batchName}"?`
+            : ''
+        }
+        confirmText="Delete"
+        variant="danger"
+        loading={deleting}
+      />
     </div>
-  )
+  );
 }
 
-export default ScanDocsPage
+export default ScanDocsPage;
